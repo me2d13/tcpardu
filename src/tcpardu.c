@@ -6,6 +6,7 @@
 #include "tcpardu.h"
 #include "tools.h"
 #include "serial.h"
+#include "tcp.h"
 
 /********** defaults **********/
 
@@ -15,8 +16,7 @@
 /********** end defaults **********/
 
 int gTcpPort = 0;
-char *deviceRoot = "/dev/serial/by-id";
-char *deviceFilter = "arduino";
+int gIsShutdown = FALSE;
 
 /* main */
 int main(int argc, char *argv[]) {
@@ -30,10 +30,25 @@ int main(int argc, char *argv[]) {
 	}
 	result = validateConfiguration();
 	if (result == RETURN_OK) {
-		printf("Hello\n");
+		startTcpServer(gTcpPort);
+		executionLoop();
 		return 0;
 	}
 	return 1;
+}
+
+void executionLoop() {
+	int serialDetectTrigerCountdown = 0;
+	while (!gIsShutdown) {
+		if (serialDetectTrigerCountdown == 0) {
+			detectSerialDevices();
+			serialDetectTrigerCountdown = WAIT_SEC_BEFORE_REDETECTING_SERIAL_DEVICES;
+		} else {
+			serialDetectTrigerCountdown--;
+		}
+		printf(".");
+		sleep(1);
+	}
 }
 
 void handle_ctrl_c(int pVal) {
@@ -66,6 +81,7 @@ void print_help(FILE *stream, char *exec) {
 
 void shutDown() {
 	printf("Shutting down\n");
+	gIsShutdown = TRUE;
 }
 
 int processCommandLineArguments(int argc, char *argv[]) {
@@ -107,7 +123,8 @@ int processCommandLineArguments(int argc, char *argv[]) {
 			break;
 			/* list serials */
 		case 't':
-			listSerialDevices(deviceRoot, deviceFilter);
+			listSerialDevices();
+			return RETURN_STOP;
 			break;
 			/* default */
 		default:

@@ -14,5 +14,6 @@ void print_version(FILE *stream);
 void print_help(FILE *stream, char *exec);
 int processCommandLineArguments(int argc, char *argv[]);
 int validateConfiguration();
+void executionLoop();
 
 #endif //TCPARDU

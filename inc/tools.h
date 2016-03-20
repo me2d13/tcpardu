@@ -17,6 +17,9 @@
 #define RETURN_OK 0
 #define RETURN_STOP 3
 
+#define FALSE 0
+#define TRUE 1
+
 void debugLog(char pLevel, const char *fmt, ...);
 
 void setTraceLevel(char value);
