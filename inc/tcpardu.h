@@ -15,5 +15,6 @@ void print_help(FILE *stream, char *exec);
 int processCommandLineArguments(int argc, char *argv[]);
 int validateConfiguration();
 void executionLoop();
+void prepareSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD);
 
 #endif //TCPARDU

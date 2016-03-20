@@ -14,7 +14,7 @@ int isClientConnected();
 void tcpShutdown();
 void prepareTcpSelectSets(fd_set *pRS, int *pMaxFD);
 void handleTcpRead(fd_set *ptr);
-int sendToClient(char *data);
+void sendToClient(char *data);
 
 
 #endif /* INC_TCP_H_ */

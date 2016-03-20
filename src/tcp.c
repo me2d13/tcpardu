@@ -124,7 +124,7 @@ int isClientConnected() {
     return clientFd;
 }
 
-int sendToClient(char *data) {
+void sendToClient(char *data) {
     if (clientFd > 0) {
         if (send(clientFd, data, strlen(data), 0) != strlen(data)) {
             debugLog(TL_ERROR, "TCP: send data");

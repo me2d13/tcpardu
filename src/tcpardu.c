@@ -2,6 +2,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "tcpardu.h"
 #include "tools.h"
@@ -40,15 +41,47 @@ int main(int argc, char *argv[]) {
 void executionLoop() {
 	int serialDetectTrigerCountdown = 0;
 	while (!gIsShutdown) {
+		// detect serial devices
 		if (serialDetectTrigerCountdown == 0) {
 			detectSerialDevices();
-			serialDetectTrigerCountdown = WAIT_SEC_BEFORE_REDETECTING_SERIAL_DEVICES;
+			serialDetectTrigerCountdown = WAIT_TEN_SEC_BEFORE_REDETECTING_SERIAL_DEVICES;
 		} else {
 			serialDetectTrigerCountdown--;
 		}
-		printf(".");
-		sleep(1);
+		// prepare select
+		int maxfd = 0;
+		int selectResult;
+		fd_set readfds;
+		fd_set writefds;
+		struct timeval tv;
+
+		prepareSelectSets(&readfds, &writefds, &maxfd);
+		tv.tv_sec = 10;
+		tv.tv_usec = 0;
+		selectResult = select(maxfd, &readfds, &writefds, NULL, &tv);
+		if (selectResult < 0) {
+			if (errno != EINTR)
+				debugLog(TL_ERROR, "Main: Select error %d.", selectResult);
+			break;
+		} else if (selectResult > 0) {
+			if (isServerStarted()) {
+				handleTcpRead(&readfds);
+			}
+			handleSerialRead(&readfds);
+		}
 	}
+	cleanupSerial();
+}
+
+void prepareSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
+	FD_ZERO(pRS);
+	FD_ZERO(pWS);
+	int lMaxFD;
+	if (isServerStarted()) {
+		prepareTcpSelectSets(pRS, &lMaxFD);
+	}
+	prepareSerialSelectSets(pRS, pWS, &lMaxFD);
+	*pMaxFD = lMaxFD + 1;
 }
 
 void handle_ctrl_c(int pVal) {
