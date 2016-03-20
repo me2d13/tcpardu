@@ -1,26 +1,32 @@
 TARGET = tcpardu
-LIBS = -lm
-IDIR = inc
-CC = gcc
-CFLAGS = -g -Wall -I$(IDIR)
-ODIR=out
+CC       = gcc
+SRCDIR   = src
+INCDIR   = inc
+OBJDIR   = obj
 
-.PHONY: default all clean
+# compiling flags here
+CFLAGS   = -Wall -I$(INCDIR)
 
-default: $(TARGET)
-all: default
+LINKER   = gcc -o
+# linking flags here
+LFLAGS   = -Wall -I$(INCDIR) -lm
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard src/*.c))
-HEADERS = $(wildcard inc/*.h)
 
-$(ODIR)/%.o: src/%.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o out/$@
+SOURCES  := $(wildcard $(SRCDIR)/*.c)
+INCLUDES := $(wildcard $(INCDIR)/*.h)
+OBJECTS  := $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
+rm       = rm -f
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
+	@$(LINKER) $@ $(LFLAGS) $(OBJECTS)
+	@echo "Linking complete!"
 
+$(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
+	@$(CC) $(CFLAGS) -c $< -o $@
+	@echo "Compiled "$<" successfully!"
+
+.PHONEY: clean
 clean:
-	-rm -f $(ODIR)/*.o
-	-rm -f $(TARGET)
+	@$(rm) $(OBJECTS)
+	@echo "Cleanup complete!"

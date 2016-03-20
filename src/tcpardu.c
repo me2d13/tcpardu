@@ -15,7 +15,8 @@
 /********** end defaults **********/
 
 int gTcpPort = 0;
-char *deviceMask = "/dev/ttyACM";
+char *deviceRoot = "/dev/serial/by-id";
+char *deviceFilter = "arduino";
 
 /* main */
 int main(int argc, char *argv[]) {
@@ -106,7 +107,7 @@ int processCommandLineArguments(int argc, char *argv[]) {
 			break;
 			/* list serials */
 		case 't':
-			listSerialDevices(deviceMask);
+			listSerialDevices(deviceRoot, deviceFilter);
 			break;
 			/* default */
 		default:

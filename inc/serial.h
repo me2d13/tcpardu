@@ -8,6 +8,6 @@
 #ifndef INC_SERIAL_H_
 #define INC_SERIAL_H_
 
-void listSerialDevices(char *deviceMask);
+void listSerialDevices(char *deviceRoot, char *deviceFilter);
 
 #endif /* INC_SERIAL_H_ */
