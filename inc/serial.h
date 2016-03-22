@@ -22,6 +22,7 @@
 typedef struct
 {
     char deviceFileName[SERIAL_MAX_DEVCE_FILENAME_LENGTH];
+    int index;
     int fd;
     struct termios oldtio;
 } DeviceInfo;
@@ -37,5 +38,9 @@ void prepareSerialSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD);
 void handleSerialRead(fd_set *readfds);
 int openDevice(DeviceInfo* device);
 void cleanupSerial();
+void processCommandFromSerial(char *command, DeviceInfo *deviceInfo);
+void processHelloCommand(DeviceInfo *deviceInfo);
+void processDebugCommand(char *command, DeviceInfo *deviceInfo);
+void sendString(char *value, DeviceInfo *deviceInfo);
 
 #endif /* INC_SERIAL_H_ */

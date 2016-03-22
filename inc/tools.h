@@ -28,4 +28,6 @@ char *getTimeStamp();
 
 int isTraceLevel(char value);
 
+char *rtrim(char *value);
+
 #endif /* INC_TOOLS_H_ */

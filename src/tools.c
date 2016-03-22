@@ -32,7 +32,7 @@ void debugLog(char pLevel, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     getTimeStamp();
-    sprintf(buffer, "%s %-9s: ", gTimeBuffer, tl_name[pLevel]);
+    sprintf(buffer, "%s %-9s: ", gTimeBuffer, tl_name[(int) pLevel]);
     vsprintf(buffer + 23 + 11, fmt, ap);
     va_end(ap);
     fprintf(stderr, "# %s\n", buffer);
@@ -74,3 +74,14 @@ int isTraceLevel(char value) {
         return 0;
 }
 
+char *rtrim(char *value) {
+	int i;
+	for (i = strlen(value) - 1; i >= 0; i--) {
+		if (value[i] == '\n' || value[i] == '\r' || value[i] == '\t' || value[i] == ' ') {
+			value[i] = 0;
+		} else {
+			break;
+		}
+	}
+	return value;
+}

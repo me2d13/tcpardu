@@ -119,6 +119,7 @@ void removeDeviceWithIndex(int index) {
 
 	for (i = index; i < gDeviceCount - 1; i++) {
 		memcpy(gSerialDevices + i, gSerialDevices + i + 1, sizeof(DeviceInfo));
+		gSerialDevices[i].index = i;
 	}
 	gDeviceCount--;
 }
@@ -131,8 +132,9 @@ void addDevice(DeviceInfo* deviceInfo) {
 	}
 	debugLog(TL_INFO, "SERIAL: Adding device %s with index %d", deviceInfo->deviceFileName, gDeviceCount);
 	memcpy(gSerialDevices + gDeviceCount, deviceInfo, sizeof(DeviceInfo));
+	gSerialDevices[gDeviceCount].index = gDeviceCount;
 	gDeviceCount++;
-	openDevice(gSerialDevices+gDeviceCount-1);
+	openDevice(gSerialDevices + gDeviceCount - 1);
 }
 
 void prepareSerialSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
@@ -155,8 +157,12 @@ void handleSerialRead(fd_set *readfds) {
 		if (gSerialDevices[i].fd > 0 && FD_ISSET(gSerialDevices[i].fd, readfds)) {
 			char buf[READ_BUFFER_LENGTH];
 			int res = read(gSerialDevices[i].fd, buf, READ_BUFFER_LENGTH);
-			buf[res]=0; // set end of string, so we can printf
+			buf[res] = 0; // set end of string, so we can printf
 			debugLog(TL_DEBUG, "SERIAL[%d]: got %d bytes: %s", i, res, buf);
+			rtrim(buf);
+			if (buf[0]) {
+				processCommandFromSerial(buf, gSerialDevices + i);
+			}
 		}
 	}
 }
@@ -240,4 +246,27 @@ void cleanupSerial() {
 			tcsetattr(gSerialDevices[i].fd, TCSANOW, &(gSerialDevices[i].oldtio));
 		}
 	}
+}
+
+void processCommandFromSerial(char *command, DeviceInfo *deviceInfo) {
+	if (strcasecmp("HELLO", command) == 0) {
+		processHelloCommand(deviceInfo);
+	} else if (strncasecmp("DEBUG:", command, 6) == 0) {
+		processDebugCommand(command, deviceInfo);
+	} else {
+		debugLog(TL_WARNING, "SERIAL: Unknown command %s ignored.", command);
+	}
+}
+
+void processHelloCommand(DeviceInfo *deviceInfo) {
+	sendString("OLLEH", deviceInfo);
+}
+
+void processDebugCommand(char *command, DeviceInfo *deviceInfo) {
+	debugLog(TL_DEBUG, "SERIAL[%d]: %s", deviceInfo->index, command);
+}
+
+void sendString(char *value, DeviceInfo *deviceInfo) {
+	debugLog(TL_DEBUG, "SERIAL[%d]: sent '%s'", deviceInfo->index, value);
+	write(deviceInfo->fd, value, strlen(value));
 }
