@@ -20,11 +20,13 @@ tcpardu is just one piece in whole home automation project. All pieces communica
 - commands
 - statuses
 Commands are used to execute some action (switch light on, open door), statuses are sent by units to inform about status (door is open, temperature is).
+
 ## command messages
 Format of command message is
 ```
 CMD:from:to:command[:argument[...:argument]]
 ```
+
 ## status messages
 Format of status message is
 ```
