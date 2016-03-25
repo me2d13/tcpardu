@@ -10,19 +10,25 @@
 #ifndef INC_SERIAL_H_
 #define INC_SERIAL_H_
 
-#define SERIAL_MAX_DEVCE_FILENAME_LENGTH 400
-#define SERIAL_MAX_DEVICES_NUMBER 10
+#define MAX_DEVICE_FILENAME_LENGTH 400
 #define WAIT_TEN_SEC_BEFORE_REDETECTING_SERIAL_DEVICES 3
 #define BAUDRATE B9600
 #define READ_BUFFER_LENGTH 1024
 #define MAX_MESSAGE_VALUES 20
+#define MAX_UNITS_PER_DEVICE 10
+#define MAX_STATUS_REQUESTS_PER_DEVICE 10
+#define MAX_UNIT_NAME_LENGTH 30
 
 typedef struct
 {
-    char deviceFileName[SERIAL_MAX_DEVCE_FILENAME_LENGTH];
+    char deviceFileName[MAX_DEVICE_FILENAME_LENGTH];
     int index;
     int fd;
     struct termios oldtio;
+    char units[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
+    char statusRequests[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
+    short unitsCount;
+    short statusRequestsCount;
 } DeviceInfo;
 
 typedef struct

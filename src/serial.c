@@ -17,7 +17,7 @@
 #include "serial.h"
 #include "tools.h"
 
-DeviceInfo gSerialDevices[SERIAL_MAX_DEVICES_NUMBER];
+DeviceInfo gSerialDevices[MAX_UNITS_PER_DEVICE];
 int gDeviceCount = 0;
 
 char *gDeviceRoot = "/dev/serial/by-id";
@@ -25,7 +25,7 @@ char *gDeviceFilter = "arduino";
 
 void detectSerialDevices() {
 	log(TL_DEBUG, "SERIAL: Detecting devices, currently %d known", gDeviceCount);
-	DeviceInfo lSerialDevices[SERIAL_MAX_DEVICES_NUMBER];
+	DeviceInfo lSerialDevices[MAX_UNITS_PER_DEVICE];
 	int count = findSerialDevices(lSerialDevices);
 	// go through detected and check if it is known already
 	int i, j;
@@ -100,7 +100,7 @@ int findSerialDevices(DeviceInfo *resultTable) {
 }
 
 void listSerialDevices() {
-	DeviceInfo lSerialDevices[SERIAL_MAX_DEVICES_NUMBER];
+	DeviceInfo lSerialDevices[MAX_UNITS_PER_DEVICE];
 	int count = findSerialDevices(lSerialDevices);
 	int i;
 	for (i = 0; i < count; i++) {
@@ -125,8 +125,8 @@ void removeDeviceWithIndex(int index) {
 }
 
 void addDevice(DeviceInfo* deviceInfo) {
-	if (gDeviceCount == SERIAL_MAX_DEVICES_NUMBER) {
-		log(TL_ERROR, "SERIAL: Cannot add more than %d devices. %s ignored.", SERIAL_MAX_DEVICES_NUMBER,
+	if (gDeviceCount == MAX_UNITS_PER_DEVICE) {
+		log(TL_ERROR, "SERIAL: Cannot add more than %d devices. %s ignored.", MAX_UNITS_PER_DEVICE,
 				deviceInfo->deviceFileName);
 		return;
 	}
@@ -291,6 +291,17 @@ void processCommand(char *command, DeviceInfo *deviceInfo) {
 
 void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo) {
 	log(TL_DEBUG, "SERIAL[%d]: Registering %d units to receive commands", message->numberOfValues);
+	memset(deviceInfo->units, 0, sizeof(deviceInfo->units));
+	int i;
+	for (i = 0; i < message->numberOfValues; i++) {
+		if (i == MAX_UNITS_PER_DEVICE) {
+			log(TL_ERROR, "Maximum units per device reached. Cannot allocate more command requests.");
+			break;
+		}
+		strncpy(deviceInfo->units[i], message->values[i], MAX_UNIT_NAME_LENGTH);
+		log(TL_DEBUG, "Registering command request for %s", deviceInfo->units[i]);
+	}
+	deviceInfo->unitsCount = i;
 }
 
 void processStatus(char *command, DeviceInfo *deviceInfo) {
