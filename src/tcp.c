@@ -19,16 +19,16 @@ int clientFd = 0;
 struct sockaddr_in server , client;
 
 void startTcpServer(int pPort) {
-    debugLog(TL_DEBUG, "TCP: Starting server at port %d", pPort);
+    log(TL_DEBUG, "TCP: Starting server at port %d", pPort);
 
     //Create socket
     serverFd = socket(AF_INET , SOCK_STREAM , 0);
     if (serverFd == -1)
     {
-        debugLog(TL_ERROR, "TCP: Could not create socket");
+        log(TL_ERROR, "TCP: Could not create socket");
         return;
     }
-    debugLog(TL_DEBUG, "TCP: Socket created");
+    log(TL_DEBUG, "TCP: Socket created");
 
     //Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
@@ -39,10 +39,10 @@ void startTcpServer(int pPort) {
     if( bind(serverFd,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
         //print the error message
-        debugLog(TL_ERROR, "TCP: bind failed. Error");
+        log(TL_ERROR, "TCP: bind failed. Error");
         return;
     }
-    debugLog(TL_DEBUG, "TCP: bind done");
+    log(TL_DEBUG, "TCP: bind done");
 
     //Listen - turn socket into listening mode
     listen(serverFd, 3);
@@ -79,26 +79,26 @@ void handleTcpRead(fd_set *readfds) {
     char *message = "tcpardu here\n";
     if (FD_ISSET(serverFd , readfds)) {
         if (clientFd > 0) {
-            debugLog(TL_WARNING, "TCP: New client login, old client disconnected");
+            log(TL_WARNING, "TCP: New client login, old client disconnected");
             close(clientFd);
         }
         if ((clientFd = accept(serverFd, (struct sockaddr *)&client, (socklen_t*)&client))<0)
         {
-            debugLog(TL_ERROR, "TCP: Cannot accept new connection");
+            log(TL_ERROR, "TCP: Cannot accept new connection");
             tcpShutdown();
             return;
         }
 
         //inform user of socket number - used in send and receive commands
-        debugLog(TL_DEBUG, "TCP: New connection , socket fd is %d , ip is : %s , port : %d \n" , clientFd , inet_ntoa(client.sin_addr) , ntohs(client.sin_port));
+        log(TL_DEBUG, "TCP: New connection , socket fd is %d , ip is : %s , port : %d \n" , clientFd , inet_ntoa(client.sin_addr) , ntohs(client.sin_port));
 
         //send new connection greeting message
         if( send(clientFd, message, strlen(message), 0) != strlen(message) )
         {
-            debugLog(TL_ERROR, "TCP: send welcome message");
+            log(TL_ERROR, "TCP: send welcome message");
         }
 
-        debugLog(TL_DEBUG, "TCP: Welcome message sent successfully");
+        log(TL_DEBUG, "TCP: Welcome message sent successfully");
     }
     if (clientFd > 0 && FD_ISSET(clientFd , readfds)) {
         //Check if it was for closing , and also read the incoming message
@@ -107,7 +107,7 @@ void handleTcpRead(fd_set *readfds) {
         if ((valread = read(clientFd , buffer, 1024)) == 0)
         {
             //Somebody disconnected , get his details and print
-            debugLog(TL_WARNING, "TCP: Host disconnected , clearing client FD");
+            log(TL_WARNING, "TCP: Host disconnected , clearing client FD");
 
             //Close the socket and mark as 0 in list for reuse
             close( clientFd );
@@ -127,10 +127,10 @@ int isClientConnected() {
 void sendToClient(char *data) {
     if (clientFd > 0) {
         if (send(clientFd, data, strlen(data), 0) != strlen(data)) {
-            debugLog(TL_ERROR, "TCP: send data");
+            log(TL_ERROR, "TCP: send data");
         }
-        debugLog(TL_DEBUG, "TCP: Data message sent successfully");
+        log(TL_DEBUG, "TCP: Data message sent successfully");
     } else {
-        debugLog(TL_ERROR, "TCP: cannot send data to client as it is not connected");
+        log(TL_ERROR, "TCP: cannot send data to client as it is not connected");
     }
 }

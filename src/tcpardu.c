@@ -61,7 +61,7 @@ void executionLoop() {
 		selectResult = select(maxfd, &readfds, &writefds, NULL, &tv);
 		if (selectResult < 0) {
 			if (errno != EINTR)
-				debugLog(TL_ERROR, "Main: Select error %d.", selectResult);
+				log(TL_ERROR, "Main: Select error %d.", selectResult);
 			break;
 		} else if (selectResult > 0) {
 			if (isServerStarted()) {
@@ -85,12 +85,12 @@ void prepareSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
 }
 
 void handle_ctrl_c(int pVal) {
-	debugLog(TL_INFO, "Signal: Ctrl+c detected, quit");
+	log(TL_INFO, "Signal: Ctrl+c detected, quit");
 	shutDown();
 }
 
 void handle_kill(int pVal) {
-	debugLog(TL_INFO, "Signal: SIGTERM detected, quit");
+	log(TL_INFO, "Signal: SIGTERM detected, quit");
 	shutDown();
 }
 
@@ -147,12 +147,12 @@ int processCommandLineArguments(int argc, char *argv[]) {
 			/* tcp port */
 		case 'p':
 			gTcpPort = atoi(optarg);
-			debugLog(TL_DEBUG, "Main: Setting tcp port to %d", gTcpPort);
+			log(TL_DEBUG, "Main: Setting tcp port to %d", gTcpPort);
 			break;
 			/* verbose */
 		case 'e':
 			setTraceLevel(TL_DEBUG);
-			debugLog(TL_DEBUG, "Main: Trace level set to DEBUG");
+			log(TL_DEBUG, "Main: Trace level set to DEBUG");
 			break;
 			/* list serials */
 		case 't':
@@ -171,7 +171,7 @@ int processCommandLineArguments(int argc, char *argv[]) {
 
 int validateConfiguration() {
 	if (gTcpPort <= 0) {
-		debugLog(TL_ERROR, "Tcp port must be set to correct number.\n\n");
+		log(TL_ERROR, "Tcp port must be set to correct number.\n\n");
 		print_help(stdout, EXE_NAME);
 		return RETURN_ERROR;
 	}

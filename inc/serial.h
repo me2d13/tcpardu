@@ -12,12 +12,10 @@
 
 #define SERIAL_MAX_DEVCE_FILENAME_LENGTH 400
 #define SERIAL_MAX_DEVICES_NUMBER 10
-
 #define WAIT_TEN_SEC_BEFORE_REDETECTING_SERIAL_DEVICES 3
-
 #define BAUDRATE B9600
-
 #define READ_BUFFER_LENGTH 1024
+#define MAX_MESSAGE_VALUES 20
 
 typedef struct
 {
@@ -26,6 +24,17 @@ typedef struct
     int fd;
     struct termios oldtio;
 } DeviceInfo;
+
+typedef struct
+{
+    short isStatus;
+    short isCommand;
+    char *from;
+    char *to;
+    char *command;
+    char *values[MAX_MESSAGE_VALUES];
+    int numberOfValues;
+} Message;
 
 void listSerialDevices();
 int findSerialDevices(DeviceInfo *resultTable);
@@ -42,5 +51,9 @@ void processCommandFromSerial(char *command, DeviceInfo *deviceInfo);
 void processHelloCommand(DeviceInfo *deviceInfo);
 void processDebugCommand(char *command, DeviceInfo *deviceInfo);
 void sendString(char *value, DeviceInfo *deviceInfo);
+void processCommand(char *command, DeviceInfo *deviceInfo);
+void processStatus(char *command, DeviceInfo *deviceInfo);
+short parseMessage(char *message, Message *result);
+void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo);
 
 #endif /* INC_SERIAL_H_ */

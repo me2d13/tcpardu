@@ -23,7 +23,7 @@ const char *tl_name[] = {
         "DEBUG"
 };
 
-void debugLog(char pLevel, const char *fmt, ...) {
+void log(char pLevel, const char *fmt, ...) {
     char buffer[2048];
     // if I ever send debug string longer than 2048 bytes,
     // I will never find this error why application crashes :-)

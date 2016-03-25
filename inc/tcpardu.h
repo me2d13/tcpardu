@@ -6,7 +6,7 @@
 #define TL_INFO     2
 #define TL_DEBUG    3
 
-void debugLog(char pLevel, const char *fmt, ...);
+void log(char pLevel, const char *fmt, ...);
 void shutDown();
 void handle_ctrl_c(int pVal);
 void handle_kill(int pVal);

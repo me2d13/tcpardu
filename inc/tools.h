@@ -20,7 +20,7 @@
 #define FALSE 0
 #define TRUE 1
 
-void debugLog(char pLevel, const char *fmt, ...);
+void log(char pLevel, const char *fmt, ...);
 
 void setTraceLevel(char value);
 

@@ -24,7 +24,7 @@ char *gDeviceRoot = "/dev/serial/by-id";
 char *gDeviceFilter = "arduino";
 
 void detectSerialDevices() {
-	debugLog(TL_DEBUG, "SERIAL: Detecting devices, currently %d known", gDeviceCount);
+	log(TL_DEBUG, "SERIAL: Detecting devices, currently %d known", gDeviceCount);
 	DeviceInfo lSerialDevices[SERIAL_MAX_DEVICES_NUMBER];
 	int count = findSerialDevices(lSerialDevices);
 	// go through detected and check if it is known already
@@ -110,7 +110,7 @@ void listSerialDevices() {
 
 void removeDeviceWithIndex(int index) {
 	int i;
-	debugLog(TL_INFO, "SERIAL: Removing device %s with index %d", gSerialDevices[index].deviceFileName, index);
+	log(TL_INFO, "SERIAL: Removing device %s with index %d", gSerialDevices[index].deviceFileName, index);
 
 	/*
 	 restore the old port settings
@@ -126,11 +126,11 @@ void removeDeviceWithIndex(int index) {
 
 void addDevice(DeviceInfo* deviceInfo) {
 	if (gDeviceCount == SERIAL_MAX_DEVICES_NUMBER) {
-		debugLog(TL_ERROR, "SERIAL: Cannot add more than %d devices. %s ignored.", SERIAL_MAX_DEVICES_NUMBER,
+		log(TL_ERROR, "SERIAL: Cannot add more than %d devices. %s ignored.", SERIAL_MAX_DEVICES_NUMBER,
 				deviceInfo->deviceFileName);
 		return;
 	}
-	debugLog(TL_INFO, "SERIAL: Adding device %s with index %d", deviceInfo->deviceFileName, gDeviceCount);
+	log(TL_INFO, "SERIAL: Adding device %s with index %d", deviceInfo->deviceFileName, gDeviceCount);
 	memcpy(gSerialDevices + gDeviceCount, deviceInfo, sizeof(DeviceInfo));
 	gSerialDevices[gDeviceCount].index = gDeviceCount;
 	gDeviceCount++;
@@ -141,7 +141,7 @@ void prepareSerialSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
 	int i;
 	for (i = 0; i < gDeviceCount; i++) {
 		if (gSerialDevices[i].fd <= 0) {
-			debugLog(TL_WARNING, "Serial device %s not opened, cannot read.", gSerialDevices[i].deviceFileName);
+			log(TL_WARNING, "Serial device %s not opened, cannot read.", gSerialDevices[i].deviceFileName);
 			continue;
 		}
 		FD_SET(gSerialDevices[i].fd, pRS);
@@ -158,7 +158,7 @@ void handleSerialRead(fd_set *readfds) {
 			char buf[READ_BUFFER_LENGTH];
 			int res = read(gSerialDevices[i].fd, buf, READ_BUFFER_LENGTH);
 			buf[res] = 0; // set end of string, so we can printf
-			debugLog(TL_DEBUG, "SERIAL[%d]: got %d bytes: %s", i, res, buf);
+			log(TL_DEBUG, "SERIAL[%d]: got %d bytes: %s", i, res, buf);
 			rtrim(buf);
 			if (buf[0]) {
 				processCommandFromSerial(buf, gSerialDevices + i);
@@ -253,8 +253,12 @@ void processCommandFromSerial(char *command, DeviceInfo *deviceInfo) {
 		processHelloCommand(deviceInfo);
 	} else if (strncasecmp("DEBUG:", command, 6) == 0) {
 		processDebugCommand(command, deviceInfo);
+	} else if (strncasecmp("CMD:", command, 4) == 0) {
+		processCommand(command, deviceInfo);
+	} else if (strncasecmp("STS:", command, 4) == 0) {
+		processStatus(command, deviceInfo);
 	} else {
-		debugLog(TL_WARNING, "SERIAL: Unknown command %s ignored.", command);
+		log(TL_WARNING, "SERIAL: Unknown message %s ignored.", command);
 	}
 }
 
@@ -263,10 +267,85 @@ void processHelloCommand(DeviceInfo *deviceInfo) {
 }
 
 void processDebugCommand(char *command, DeviceInfo *deviceInfo) {
-	debugLog(TL_DEBUG, "SERIAL[%d]: %s", deviceInfo->index, command);
+	log(TL_DEBUG, "SERIAL[%d]: %s", deviceInfo->index, command);
 }
 
 void sendString(char *value, DeviceInfo *deviceInfo) {
-	debugLog(TL_DEBUG, "SERIAL[%d]: sent '%s'", deviceInfo->index, value);
+	log(TL_DEBUG, "SERIAL[%d]: sent '%s'", deviceInfo->index, value);
 	write(deviceInfo->fd, value, strlen(value));
+}
+
+void processCommand(char *command, DeviceInfo *deviceInfo) {
+	Message message;
+	if (parseMessage(command, &message) && message.isCommand) {
+		if (strcasecmp("ORDER_COMMAND_FOR", message.command) == 0) {
+			processOrderCommandsFor(&message, deviceInfo);
+		} else {
+			log(TL_ERROR, "SERIAL[%d]: Unsupported command '%s'", deviceInfo->index, command);
+		}
+	} else {
+		log(TL_ERROR, "SERIAL[%d]: Error parsing message '%s'", deviceInfo->index, command);
+	}
+
+}
+
+void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo) {
+	log(TL_DEBUG, "SERIAL[%d]: Registering %d units to receive commands", message->numberOfValues);
+}
+
+void processStatus(char *command, DeviceInfo *deviceInfo) {
+	log(TL_DEBUG, "SERIAL[%d]: Status %s", deviceInfo->index, command);
+}
+
+short parseMessage(char *message, Message *result) {
+	int item = 0;
+	int pos = 0;
+	result->numberOfValues = 0;
+	while (message[pos]) {
+		if (message[pos] == ':') {
+			message[pos] = 0;
+			switch (item) {
+				case 0:
+					if (strcasecmp("CMD", message) == 0) {
+						result->isCommand = TRUE;
+						result->isStatus = FALSE;
+					} else if (strcasecmp("STS", message) == 0) {
+						result->isCommand = FALSE;
+						result->isStatus = TRUE;
+					} else {
+						log(TL_ERROR, "Unknown message type '%s'", message);
+						return FALSE;
+					}
+					pos++;
+					result->from = message+pos;
+					break;
+				case 1:
+					pos++;
+					result->to = message+pos;
+					break;
+				case 2:
+					pos++;
+					if (result->isCommand) {
+						result->command = message+pos;
+					} else {
+						result->values[0] = message+pos;
+						result->numberOfValues++;
+					}
+					break;
+				default:
+					pos++;
+					if (result->numberOfValues == MAX_MESSAGE_VALUES) {
+						log(TL_ERROR, "Message '%s' has more values then supported (%d)", message, MAX_MESSAGE_VALUES);
+						return FALSE;
+					}
+					result->values[result->numberOfValues] = message+pos;
+					result->numberOfValues++;
+					break;
+			}
+			item++;
+		} else {
+			pos++;
+		}
+	}
+	return TRUE;
 }
