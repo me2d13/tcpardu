@@ -13,6 +13,7 @@
 #include "tcp.h"
 #include "tools.h"
 #include <arpa/inet.h>
+#include "serial.h"
 
 int serverFd = 0;
 int clientFd = 0;
@@ -115,7 +116,7 @@ void handleTcpRead(fd_set *readfds) {
         } else {
             //set the string terminating NULL byte on the end of the data read
             buffer[valread] = '\0';
-            //processMultipleCommands(buffer);
+            processReceivedLine(buffer);
         }
     }
 }
@@ -124,7 +125,7 @@ int isClientConnected() {
     return clientFd;
 }
 
-void sendToClient(char *data) {
+void sendToTcpClientIfConnected(char *data) {
     if (clientFd > 0) {
         if (send(clientFd, data, strlen(data), 0) != strlen(data)) {
             log(TL_ERROR, "TCP: send data");
@@ -133,4 +134,8 @@ void sendToClient(char *data) {
     } else {
         log(TL_ERROR, "TCP: cannot send data to client as it is not connected");
     }
+}
+
+int processReceivedLine(char *value) {
+	return dispatchMessageForSerialDevice(value);
 }

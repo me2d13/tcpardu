@@ -316,42 +316,42 @@ short parseMessage(char *message, Message *result) {
 		if (message[pos] == ':') {
 			message[pos] = 0;
 			switch (item) {
-				case 0:
-					if (strcasecmp("CMD", message) == 0) {
-						result->isCommand = TRUE;
-						result->isStatus = FALSE;
-					} else if (strcasecmp("STS", message) == 0) {
-						result->isCommand = FALSE;
-						result->isStatus = TRUE;
-					} else {
-						log(TL_ERROR, "Unknown message type '%s'", message);
-						return FALSE;
-					}
-					pos++;
-					result->from = message+pos;
-					break;
-				case 1:
-					pos++;
-					result->to = message+pos;
-					break;
-				case 2:
-					pos++;
-					if (result->isCommand) {
-						result->command = message+pos;
-					} else {
-						result->values[0] = message+pos;
-						result->numberOfValues++;
-					}
-					break;
-				default:
-					pos++;
-					if (result->numberOfValues == MAX_MESSAGE_VALUES) {
-						log(TL_ERROR, "Message '%s' has more values then supported (%d)", message, MAX_MESSAGE_VALUES);
-						return FALSE;
-					}
-					result->values[result->numberOfValues] = message+pos;
+			case 0:
+				if (strcasecmp("CMD", message) == 0) {
+					result->isCommand = TRUE;
+					result->isStatus = FALSE;
+				} else if (strcasecmp("STS", message) == 0) {
+					result->isCommand = FALSE;
+					result->isStatus = TRUE;
+				} else {
+					log(TL_ERROR, "Unknown message type '%s'", message);
+					return FALSE;
+				}
+				pos++;
+				result->from = message + pos;
+				break;
+			case 1:
+				pos++;
+				result->to = message + pos;
+				break;
+			case 2:
+				pos++;
+				if (result->isCommand) {
+					result->command = message + pos;
+				} else {
+					result->values[0] = message + pos;
 					result->numberOfValues++;
-					break;
+				}
+				break;
+			default:
+				pos++;
+				if (result->numberOfValues == MAX_MESSAGE_VALUES) {
+					log(TL_ERROR, "Message '%s' has more values then supported (%d)", message, MAX_MESSAGE_VALUES);
+					return FALSE;
+				}
+				result->values[result->numberOfValues] = message + pos;
+				result->numberOfValues++;
+				break;
 			}
 			item++;
 		} else {
@@ -359,4 +359,39 @@ short parseMessage(char *message, Message *result) {
 		}
 	}
 	return TRUE;
+}
+
+int dispatchMessageForSerialDevice(char *value) {
+	Message message;
+	int messagesSent = 0;
+	if (parseMessage(value, &message)) {
+		int i;
+		for (i = 0; i < gDeviceCount; i++) {
+			if (message.isCommand) {
+				if (strArrayContains(message.to, gSerialDevices[i].units, gSerialDevices[i].unitsCount)) {
+					log(TL_DEBUG, "SERIAL[%d]: Sending command '%s' to device %d.", i, value, i);
+					sendString(value, gSerialDevices + i);
+					messagesSent++;
+				}
+			}
+			if (message.isStatus) {
+				if (strArrayContains(message.to, gSerialDevices[i].statusRequests, gSerialDevices[i].statusRequestsCount)) {
+					log(TL_DEBUG, "SERIAL[%d]: Sending status '%s' to device %d.", i, value, i);
+					sendString(value, gSerialDevices + i);
+					messagesSent++;
+				}
+			}
+		}
+	}
+	return messagesSent;
+}
+
+short strArrayContains(char *value, NamesArray names, int arraySize) {
+	int i;
+	for (i = 0; i < arraySize; i++) {
+		if (strncasecmp(value, names[i], MAX_UNIT_NAME_LENGTH) == 0) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }

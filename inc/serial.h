@@ -19,14 +19,16 @@
 #define MAX_STATUS_REQUESTS_PER_DEVICE 10
 #define MAX_UNIT_NAME_LENGTH 30
 
+typedef char NamesArray[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
+
 typedef struct
 {
     char deviceFileName[MAX_DEVICE_FILENAME_LENGTH];
     int index;
     int fd;
     struct termios oldtio;
-    char units[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
-    char statusRequests[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
+    NamesArray units;
+    NamesArray statusRequests;
     short unitsCount;
     short statusRequestsCount;
 } DeviceInfo;
@@ -61,5 +63,7 @@ void processCommand(char *command, DeviceInfo *deviceInfo);
 void processStatus(char *command, DeviceInfo *deviceInfo);
 short parseMessage(char *message, Message *result);
 void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo);
+int dispatchMessageForSerialDevice(char *value);
+short strArrayContains(char *value, NamesArray names, int arraySize);
 
 #endif /* INC_SERIAL_H_ */
