@@ -16,12 +16,14 @@
 
 #include "serial.h"
 #include "tools.h"
+#include "tcp.h"
 
 DeviceInfo gSerialDevices[MAX_UNITS_PER_DEVICE];
 int gDeviceCount = 0;
 
 char *gDeviceRoot = "/dev/serial/by-id";
-char *gDeviceFilter = "arduino";
+//char *gDeviceFilter = "arduino";
+char *gDeviceFilter = "if00";
 
 void detectSerialDevices() {
 	log(TL_DEBUG, "SERIAL: Detecting devices, currently %d known", gDeviceCount);
@@ -130,11 +132,12 @@ void addDevice(DeviceInfo* deviceInfo) {
 				deviceInfo->deviceFileName);
 		return;
 	}
-	log(TL_INFO, "SERIAL: Adding device %s with index %d", deviceInfo->deviceFileName, gDeviceCount);
 	memcpy(gSerialDevices + gDeviceCount, deviceInfo, sizeof(DeviceInfo));
 	gSerialDevices[gDeviceCount].index = gDeviceCount;
+	openDevice(gSerialDevices + gDeviceCount);
+	log(TL_INFO, "SERIAL: Added device %s with index %d, fd %d", deviceInfo->deviceFileName,
+			gDeviceCount, gSerialDevices[gDeviceCount].fd);
 	gDeviceCount++;
-	openDevice(gSerialDevices + gDeviceCount - 1);
 }
 
 void prepareSerialSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
@@ -147,6 +150,7 @@ void prepareSerialSelectSets(fd_set *pRS, fd_set *pWS, int *pMaxFD) {
 		FD_SET(gSerialDevices[i].fd, pRS);
 		if (gSerialDevices[i].fd > *pMaxFD) {
 			*pMaxFD = gSerialDevices[i].fd;
+			//log(TL_DEBUG, "Max fd for select is now %d", *pMaxFD);
 		}
 	}
 }
@@ -158,7 +162,7 @@ void handleSerialRead(fd_set *readfds) {
 			char buf[READ_BUFFER_LENGTH];
 			int res = read(gSerialDevices[i].fd, buf, READ_BUFFER_LENGTH);
 			buf[res] = 0; // set end of string, so we can printf
-			log(TL_DEBUG, "SERIAL[%d]: got %d bytes: %s", i, res, buf);
+			log(TL_DEBUG, "SERIAL[%d]: got %d bytes from fd %d, bytes: %s", i, res, gSerialDevices[i].fd, buf);
 			rtrim(buf);
 			if (buf[0]) {
 				processCommandFromSerial(buf, gSerialDevices + i);
@@ -271,7 +275,7 @@ void processDebugCommand(char *command, DeviceInfo *deviceInfo) {
 }
 
 void sendString(char *value, DeviceInfo *deviceInfo) {
-	log(TL_DEBUG, "SERIAL[%d]: sent '%s'", deviceInfo->index, value);
+	log(TL_DEBUG, "SERIAL[%d]: sent '%s' to fd %d", deviceInfo->index, value, deviceInfo->fd);
 	write(deviceInfo->fd, value, strlen(value));
 }
 
@@ -281,12 +285,13 @@ void processCommand(char *command, DeviceInfo *deviceInfo) {
 		if (strcasecmp("ORDER_COMMAND_FOR", message.command) == 0) {
 			processOrderCommandsFor(&message, deviceInfo);
 		} else {
-			log(TL_ERROR, "SERIAL[%d]: Unsupported command '%s'", deviceInfo->index, command);
+			//log(TL_ERROR, "SERIAL[%d]: Unsupported command '%s'", deviceInfo->index, command);
+			log(TL_DEBUG, "SERIAL[%d]: Sending command '%s' to tcp client.", deviceInfo->index, command);
+			sendToTcpClientIfConnected(command);
 		}
 	} else {
 		log(TL_ERROR, "SERIAL[%d]: Error parsing message '%s'", deviceInfo->index, command);
 	}
-
 }
 
 void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo) {
@@ -304,8 +309,24 @@ void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo) {
 	deviceInfo->unitsCount = i;
 }
 
-void processStatus(char *command, DeviceInfo *deviceInfo) {
-	log(TL_DEBUG, "SERIAL[%d]: Status %s", deviceInfo->index, command);
+void processStatus(char *status, DeviceInfo *deviceInfo) {
+	//log(TL_DEBUG, "SERIAL[%d]: Status %s", deviceInfo->index, status);
+	// forward to other serial devices if requested
+	char *statusCopy = (char*)malloc(strlen(status)+1);
+	if (statusCopy == NULL) {
+		log(TL_ERROR, "Cannot allocate %d bytes for message copy", strlen(status)+1);
+		return;
+	}
+	strcpy(statusCopy, status);
+	dispatchMessageForSerialDevice(statusCopy);
+	Message message;
+	if (parseMessage(statusCopy, &message) && message.isStatus) {
+		log(TL_DEBUG, "SERIAL[%d]: Sending status '%s' to tcp client.", deviceInfo->index, status);
+		sendToTcpClientIfConnected(status);
+	} else {
+		log(TL_ERROR, "SERIAL[%d]: Error parsing message '%s'", deviceInfo->index, status);
+	}
+	free(statusCopy);
 }
 
 short parseMessage(char *message, Message *result) {
@@ -364,7 +385,13 @@ short parseMessage(char *message, Message *result) {
 int dispatchMessageForSerialDevice(char *value) {
 	Message message;
 	int messagesSent = 0;
-	if (parseMessage(value, &message)) {
+	char *valueCopy = (char*)malloc(strlen(value)+1);
+	if (valueCopy == NULL) {
+		log(TL_ERROR, "Cannot allocate %d bytes for message copy", strlen(value)+1);
+		return 0;
+	}
+	strcpy(valueCopy, value);
+	if (parseMessage(valueCopy, &message)) {
 		int i;
 		for (i = 0; i < gDeviceCount; i++) {
 			if (message.isCommand) {
@@ -375,14 +402,18 @@ int dispatchMessageForSerialDevice(char *value) {
 				}
 			}
 			if (message.isStatus) {
-				if (strArrayContains(message.to, gSerialDevices[i].statusRequests, gSerialDevices[i].statusRequestsCount)) {
+				if (strArrayContains(message.from, gSerialDevices[i].statusRequests, gSerialDevices[i].statusRequestsCount)) {
 					log(TL_DEBUG, "SERIAL[%d]: Sending status '%s' to device %d.", i, value, i);
 					sendString(value, gSerialDevices + i);
 					messagesSent++;
 				}
 			}
 		}
+		log(TL_WARNING, "SERIAL: Message sent %d times.", messagesSent);
+	} else {
+		log(TL_WARNING, "Cannot parse message '%s' - wrong format.", value);
 	}
+	free(valueCopy);
 	return messagesSent;
 }
 

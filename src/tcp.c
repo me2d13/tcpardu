@@ -77,7 +77,7 @@ void prepareTcpSelectSets(fd_set *pRS, int *pMaxFD) {
 }
 
 void handleTcpRead(fd_set *readfds) {
-    char *message = "tcpardu here\n";
+    char *message = "tcpardu here\n\r";
     if (FD_ISSET(serverFd , readfds)) {
         if (clientFd > 0) {
             log(TL_WARNING, "TCP: New client login, old client disconnected");
@@ -96,12 +96,12 @@ void handleTcpRead(fd_set *readfds) {
         //send new connection greeting message
         if( send(clientFd, message, strlen(message), 0) != strlen(message) )
         {
-            log(TL_ERROR, "TCP: send welcome message");
+            log(TL_ERROR, "TCP: send welcome message error");
         }
-
         log(TL_DEBUG, "TCP: Welcome message sent successfully");
     }
     if (clientFd > 0 && FD_ISSET(clientFd , readfds)) {
+    	//log(TL_DEBUG, "TCP: Reading client data");
         //Check if it was for closing , and also read the incoming message
         ssize_t valread;
         char buffer[1025];  //data buffer of 1K
@@ -116,8 +116,11 @@ void handleTcpRead(fd_set *readfds) {
         } else {
             //set the string terminating NULL byte on the end of the data read
             buffer[valread] = '\0';
+        	log(TL_DEBUG, "TCP: Read %d bytes: '%s'", valread, buffer);
             processReceivedLine(buffer);
         }
+    //} else {
+    //	log(TL_DEBUG, "TCP: No data from client");
     }
 }
 
