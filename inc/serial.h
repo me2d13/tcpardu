@@ -65,5 +65,8 @@ short parseMessage(char *message, Message *result);
 void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo);
 int dispatchMessageForSerialDevice(char *value);
 short strArrayContains(char *value, NamesArray names, int arraySize);
+void setDevicePath(char *value);
+void setDeviceFilter(char *value);
+void setDevicePathDefaults();
 
 #endif /* INC_SERIAL_H_ */

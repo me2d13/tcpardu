@@ -21,9 +21,9 @@
 DeviceInfo gSerialDevices[MAX_UNITS_PER_DEVICE];
 int gDeviceCount = 0;
 
-char *gDeviceRoot = "/dev/serial/by-id";
-//char *gDeviceFilter = "arduino";
-char *gDeviceFilter = "if00";
+
+char gDeviceRoot[MAX_DEVICE_FILENAME_LENGTH];
+char gDeviceFilter[MAX_DEVICE_FILENAME_LENGTH];
 
 void detectSerialDevices() {
 	log(TL_DEBUG, "SERIAL: Detecting devices, currently %d known", gDeviceCount);
@@ -425,4 +425,18 @@ short strArrayContains(char *value, NamesArray names, int arraySize) {
 		}
 	}
 	return FALSE;
+}
+
+void setDevicePath(char *value) {
+	strncpy(gDeviceRoot, value, MAX_DEVICE_FILENAME_LENGTH);
+}
+
+void setDeviceFilter(char *value) {
+	strncpy(gDeviceFilter, value, MAX_DEVICE_FILENAME_LENGTH);
+}
+
+void setDevicePathDefaults() {
+	setDevicePath("/dev/serial/by-id");
+	setDeviceFilter("arduino");
+	//char *gDeviceFilter = "if00";
 }

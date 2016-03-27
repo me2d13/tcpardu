@@ -23,6 +23,7 @@ int gIsShutdown = FALSE;
 int main(int argc, char *argv[]) {
 	signal(SIGINT, handle_ctrl_c);
 	signal(SIGTERM, handle_kill);
+	setDevicePathDefaults();
 	int result = processCommandLineArguments(argc, argv);
 	if (result == RETURN_ERROR) {
 		return 1;
@@ -103,10 +104,13 @@ void print_help(FILE *stream, char *exec) {
 	fprintf(stream,
 			"\nUsage: %s [OPTIONS]\n\n"
 					"Informative output:\n"
-					"  -h,  --help             Print help information\n"
+					"  -?,  --help             Prints this help information\n"
 					"  -e,  --verbose          Debug output\n"
 					"  -v,  --version          Print version information\n\n"
 					"  -t,  --list             List detected serial devices\n\n"
+					"  -d,  --devices path     Sets serial devices path (default \"/dev/serial/by-id\")\n"
+					"  -f,  --filter name      Device name filter (default \"arduino\")\n"
+					"  -h,  --http             Http mode (default is telnet mode)\n"
 					"Mandatory configuration:\n"
 					"  -p,  --port number    Runs TCP server at port\n",
 			exec);
@@ -122,20 +126,23 @@ int processCommandLineArguments(int argc, char *argv[]) {
 	int ch, option_index;
 	static struct option long_options[] = {
 			{ "port", 1, 0, 'p' },
-			{ "help", 0, 0, 'h' },
+			{ "help", 0, 0, '?' },
 			{ "version", 0, 0, 'v' },
 			{ "verbose", 0, 0, 'e' },
 			{ "list", 0, 0, 't' },
+			{ "devices", 1, 0, 'd' },
+			{ "filter", 1, 0, 'f' },
+			{ "http", 0, 0, 'h' },
 			{ 0, 0, 0, 0 }
 	};
 
 	/* process command line arguments */
 	while (1) {
-		ch = getopt_long(argc, argv, "p:hvet", long_options, &option_index);
+		ch = getopt_long(argc, argv, "p:?vetd:f:h", long_options, &option_index);
 		if (ch == -1)
 			break;
 		switch (ch) {
-		case 'h':
+		case '?':
 			print_help(stdout, argv[0]);
 			return RETURN_STOP;
 			break;
@@ -158,6 +165,21 @@ int processCommandLineArguments(int argc, char *argv[]) {
 		case 't':
 			listSerialDevices();
 			return RETURN_STOP;
+			break;
+			/* device path */
+		case 'd':
+			setDevicePath(optarg);
+			log(TL_DEBUG, "Main: Setting device path to '%s'", optarg);
+			break;
+			/* device filter */
+		case 'f':
+			setDeviceFilter(optarg);
+			log(TL_DEBUG, "Main: Setting device filter to '%s'", optarg);
+			break;
+			/* http mode */
+		case 'h':
+			setHttpMode();
+			log(TL_INFO, "Main: Using http mode");
 			break;
 			/* default */
 		default:
