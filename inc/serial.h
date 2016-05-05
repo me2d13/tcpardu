@@ -19,6 +19,8 @@
 #define MAX_STATUS_REQUESTS_PER_DEVICE 10
 #define MAX_UNIT_NAME_LENGTH 30
 
+#define MESSAGE_SEPARATOR '#'
+
 typedef char NamesArray[MAX_UNITS_PER_DEVICE][MAX_UNIT_NAME_LENGTH];
 
 typedef struct

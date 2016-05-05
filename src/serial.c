@@ -162,7 +162,7 @@ void handleSerialRead(fd_set *readfds) {
 			char buf[READ_BUFFER_LENGTH];
 			int res = read(gSerialDevices[i].fd, buf, READ_BUFFER_LENGTH);
 			buf[res] = 0; // set end of string, so we can printf
-			log(TL_DEBUG, "SERIAL[%d]: got %d bytes from fd %d, bytes: %s", i, res, gSerialDevices[i].fd, buf);
+			log(TL_DEBUG, "fromSERIAL[%d]: got %d bytes from fd %d, bytes: %s", i, res, gSerialDevices[i].fd, buf);
 			rtrim(buf);
 			if (buf[0]) {
 				processCommandFromSerial(buf, gSerialDevices + i);
@@ -271,12 +271,22 @@ void processHelloCommand(DeviceInfo *deviceInfo) {
 }
 
 void processDebugCommand(char *command, DeviceInfo *deviceInfo) {
-	log(TL_DEBUG, "SERIAL[%d]: %s", deviceInfo->index, command);
+	log(TL_DEBUG, "fromSERIAL[%d]: %s", deviceInfo->index, command);
 }
 
 void sendString(char *value, DeviceInfo *deviceInfo) {
-	log(TL_DEBUG, "SERIAL[%d]: sent '%s' to fd %d", deviceInfo->index, value, deviceInfo->fd);
-	write(deviceInfo->fd, value, strlen(value));
+	int valueLength = strlen(value);
+	char *valueCopy = (char*)malloc(valueLength+2);
+	if (valueCopy == NULL) {
+		log(TL_ERROR, "Cannot allocate %d bytes for value copy", valueLength+2);
+		return;
+	}
+	strcpy(valueCopy, value);
+	valueCopy[valueLength] = MESSAGE_SEPARATOR;
+	valueCopy[valueLength+1] = 0;
+	log(TL_DEBUG, "toSERIAL[%d]: sent '%s' to fd %d", deviceInfo->index, valueCopy, deviceInfo->fd);
+	write(deviceInfo->fd, valueCopy, valueLength+1);
+	free(valueCopy);
 }
 
 void processCommand(char *command, DeviceInfo *deviceInfo) {
@@ -396,14 +406,12 @@ int dispatchMessageForSerialDevice(char *value) {
 		for (i = 0; i < gDeviceCount; i++) {
 			if (message.isCommand) {
 				if (strArrayContains(message.to, gSerialDevices[i].units, gSerialDevices[i].unitsCount)) {
-					log(TL_DEBUG, "SERIAL[%d]: Sending command '%s' to device %d.", i, value, i);
 					sendString(value, gSerialDevices + i);
 					messagesSent++;
 				}
 			}
 			if (message.isStatus) {
 				if (strArrayContains(message.from, gSerialDevices[i].statusRequests, gSerialDevices[i].statusRequestsCount)) {
-					log(TL_DEBUG, "SERIAL[%d]: Sending status '%s' to device %d.", i, value, i);
 					sendString(value, gSerialDevices + i);
 					messagesSent++;
 				}
