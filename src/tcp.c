@@ -162,10 +162,17 @@ int isClientConnected() {
 
 void sendToTcpClientIfConnected(char *data) {
 	if (clientFd > 0) {
-		if (send(clientFd, data, strlen(data), 0) != strlen(data)) {
+		int dataLength = strlen(data);
+		if (send(clientFd, data, strlen(data), 0) != dataLength) {
 			log(TL_ERROR, "TCP: send data");
 		}
 		log(TL_DEBUG, "TCP: Data message sent successfully");
+		if (data[dataLength-1] != '\n') {
+			if (send(clientFd, "\n", 1, 0) != 1) {
+				log(TL_ERROR, "TCP: send new line");
+			}
+			log(TL_DEBUG, "TCP: Additional separator new line after data sent successfully");
+		}
 	} else {
 		log(TL_ERROR, "TCP: cannot send data to client as it is not connected");
 	}
