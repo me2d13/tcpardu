@@ -8,6 +8,7 @@
 #include "tools.h"
 #include "serial.h"
 #include "tcp.h"
+#include "mqtt.h"
 
 /********** defaults **********/
 
@@ -32,8 +33,16 @@ int main(int argc, char *argv[]) {
 	}
 	result = validateConfiguration();
 	if (result == RETURN_OK) {
-		startTcpServer(gTcpPort);
+		if (gTcpPort > 0) { 
+			startTcpServer(gTcpPort);
+		}
+		if (getMqttBrokerHost() != NULL) {
+			connectMqtt();
+		}
 		executionLoop();
+		if (getMqttBrokerHost() != NULL) {
+			disconnectMqtt();
+		}
 		return 0;
 	}
 	return 1;
@@ -112,7 +121,9 @@ void print_help(FILE *stream, char *exec) {
 					"  -f,  --filter name      Device name filter (default \"arduino\")\n"
 					"  -h,  --http             Http mode (default is telnet mode)\n"
 					"Mandatory configuration:\n"
-					"  -p,  --port number    Runs TCP server at port\n",
+					"  -p,  --port number    Runs TCP server at port\n"
+					"    OR\n"
+					"  -m,  --mqtt number    Connect to mqtt broker at standard port 1883\n",
 			exec);
 }
 
@@ -126,6 +137,7 @@ int processCommandLineArguments(int argc, char *argv[]) {
 	int ch, option_index;
 	static struct option long_options[] = {
 			{ "port", 1, 0, 'p' },
+			{ "mqtt", 1, 0, 'm' },
 			{ "help", 0, 0, '?' },
 			{ "version", 0, 0, 'v' },
 			{ "verbose", 0, 0, 'e' },
@@ -138,7 +150,7 @@ int processCommandLineArguments(int argc, char *argv[]) {
 
 	/* process command line arguments */
 	while (1) {
-		ch = getopt_long(argc, argv, "p:?vetd:f:h", long_options, &option_index);
+		ch = getopt_long(argc, argv, "p:m:?vetd:f:h", long_options, &option_index);
 		if (ch == -1)
 			break;
 		switch (ch) {
@@ -181,6 +193,11 @@ int processCommandLineArguments(int argc, char *argv[]) {
 			setHttpMode();
 			log(TL_INFO, "Main: Using http mode");
 			break;
+			/* mqtt */
+		case 'm':
+			setMqttBrokerHost(optarg);
+			log(TL_DEBUG, "Main: Setting mqtt broker to '%s'", optarg);
+			break;
 			/* default */
 		default:
 			print_help(stderr, argv[0]);
@@ -192,8 +209,8 @@ int processCommandLineArguments(int argc, char *argv[]) {
 }
 
 int validateConfiguration() {
-	if (gTcpPort <= 0) {
-		log(TL_ERROR, "Tcp port must be set to correct number.\n\n");
+	if (gTcpPort <= 0 && getMqttBrokerHost() == NULL) {
+		log(TL_ERROR, "Tcp port must be set to correct number or mqtt host must be set.\n\n");
 		print_help(stdout, EXE_NAME);
 		return RETURN_ERROR;
 	}

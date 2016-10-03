@@ -9,7 +9,7 @@ CFLAGS   = -Wall -I$(INCDIR)
 
 LINKER   = gcc -o
 # linking flags here
-LFLAGS   = -Wall -I$(INCDIR) -lm
+LFLAGS   = -Wall -I$(INCDIR) -lm -lpaho-mqtt3c
 
 
 SOURCES  := $(wildcard $(SRCDIR)/*.c)
