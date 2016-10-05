@@ -7,6 +7,7 @@
 
 #include <termios.h>
 
+
 #ifndef INC_SERIAL_H_
 #define INC_SERIAL_H_
 
@@ -70,5 +71,8 @@ short strArrayContains(char *value, NamesArray names, int arraySize);
 void setDevicePath(char *value);
 void setDeviceFilter(char *value);
 void setDevicePathDefaults();
+void sendMqttMessageToAllSerialDevices(char *topic, void *payload, int payloadLength);
+void processMqttPublish(char *command, DeviceInfo *deviceInfo);
+void processMqttSubscribe(char *command, DeviceInfo *deviceInfo);
 
 #endif /* INC_SERIAL_H_ */

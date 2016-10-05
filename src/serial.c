@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -17,6 +16,7 @@
 #include "serial.h"
 #include "tools.h"
 #include "tcp.h"
+#include "mqtt.h"
 
 DeviceInfo gSerialDevices[MAX_UNITS_PER_DEVICE];
 int gDeviceCount = 0;
@@ -261,6 +261,10 @@ void processCommandFromSerial(char *command, DeviceInfo *deviceInfo) {
 		processCommand(command, deviceInfo);
 	} else if (strncasecmp("STS:", command, 4) == 0) {
 		processStatus(command, deviceInfo);
+	} else if (strncasecmp("MP:", command, 3) == 0) {
+		processMqttPublish(command, deviceInfo);
+	} else if (strncasecmp("MS:", command, 3) == 0) {
+		processMqttSubscribe(command, deviceInfo);
 	} else {
 		log(TL_WARNING, "SERIAL: Unknown message %s ignored.", command);
 	}
@@ -302,6 +306,36 @@ void processCommand(char *command, DeviceInfo *deviceInfo) {
 	} else {
 		log(TL_ERROR, "SERIAL[%d]: Error parsing message '%s'", deviceInfo->index, command);
 	}
+}
+
+void processMqttPublish(char *command, DeviceInfo *deviceInfo) {
+	char topic[MAX_TOPIC_LENGTH+1];
+	int i = 0;
+	while (command[i+3] != ':') {
+		topic[i] = command[i+3];
+		if (command[i+3] == 0 || i == MAX_TOPIC_LENGTH+1) {
+			break;
+		}
+		i++;
+	}
+	topic[i] = 0;
+	if (i == 0) {
+		log(TL_ERROR, "SERIAL[%d]: No topic parsed in MQTT publish command '%s'", deviceInfo->index, command);
+		return;
+	}
+	if (i == MAX_TOPIC_LENGTH+1 && topic[i] != 0) {
+		log(TL_ERROR, "SERIAL[%d]: Topic too long (maximum %d) in MQTT publish command '%s'", deviceInfo->index, MAX_TOPIC_LENGTH, command);
+		return;
+	}
+	if (command[i+3] != 0) {
+		mqttPublish(topic, command + i + 4);
+	} else {
+		mqttPublish(topic, NULL);
+	}
+}
+
+void processMqttSubscribe(char *command, DeviceInfo *deviceInfo) {
+	mqttSubscribe(command + 3);
 }
 
 void processOrderCommandsFor(Message *message, DeviceInfo *deviceInfo) {
@@ -447,4 +481,8 @@ void setDevicePathDefaults() {
 	setDevicePath("/dev/serial/by-id");
 	setDeviceFilter("arduino");
 	//char *gDeviceFilter = "if00";
+}
+
+void sendMqttMessageToAllSerialDevices(char *topic, void *payload, int payloadLength) {
+
 }

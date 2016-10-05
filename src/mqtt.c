@@ -1,12 +1,15 @@
-#include "mqtt.h"
 #include <string.h>
 #include <MQTTClient.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-#define CLIENTID    "Tcpardu"
-#define TOPIC       "/garage/#"
-#define PAYLOAD     "Hello World!"
-#define QOS         1
-#define TIMEOUT     10000L
+#include "mqtt.h"
+#include "tools.h"
+#include "serial.h"
 
 char gMqttServerHost[MAX_HOSTNAME_LENGTH];
 
@@ -18,65 +21,69 @@ void setMqttBrokerHost(char *value) {
 }
 
 char *getMqttBrokerHost() {
-	return gMqttServerHost[0] == 0 ? NULL : gMqttServerHost; 
-};
+	return gMqttServerHost[0] == 0 ? NULL : gMqttServerHost;
+}
+;
 
-void delivered(void *context, MQTTClient_deliveryToken dt)
-{
-    printf("Message with token value %d delivery confirmed\n", dt);
-    deliveredtoken = dt;
+void delivered(void *context, MQTTClient_deliveryToken dt) {
+	log(TL_DEBUG, "MQTT: Message with token value %d delivery confirmed", dt);
+	deliveredtoken = dt;
 }
 
-int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *message)
-{
-    int i;
-    char* payloadptr;
+int msgarrvd(void *context, char *topicName, int topicLen,
+		MQTTClient_message *message) {
+	log(TL_DEBUG, "MQTT: Message with topic %s and length %d arrived.",
+			topicName, message->payloadlen);
 
-    printf("Message arrived\n");
-    printf("     topic: %s\n", topicName);
-    printf("   message: ");
+	//TODO: for now send message to all arduinos. Later implement topic parsing + remember subsribed topics for each serial line
+	sendMqttMessageToAllSerialDevices(topicName, message->payload, message->payloadlen);
 
-    payloadptr = message->payload;
-    for(i=0; i<message->payloadlen; i++)
-    {
-        putchar(*payloadptr++);
-    }
-    putchar('\n');
-    MQTTClient_freeMessage(&message);
-    MQTTClient_free(topicName);
-    return 1;
+	MQTTClient_freeMessage(&message);
+	MQTTClient_free(topicName);
+	return 1;
 }
 
-void connlost(void *context, char *cause)
-{
-    printf("\nConnection lost\n");
-    printf("     cause: %s\n", cause);
+void connlost(void *context, char *cause) {
+	log(TL_ERROR, "MQTT: Connection lost, cause: %s", cause);
 }
+
 void connectMqtt() {
 	int rc;
 	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
- 
-    MQTTClient_create(&client, getMqttBrokerHost(), CLIENTID,
-        MQTTCLIENT_PERSISTENCE_NONE, NULL);
-    conn_opts.keepAliveInterval = 20;
-    conn_opts.cleansession = 1;
 
-    MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered);
+	MQTTClient_create(&client, getMqttBrokerHost(), CLIENTID,
+			MQTTCLIENT_PERSISTENCE_NONE, NULL);
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
 
-    if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
-    {
-        printf("Failed to connect, return code %d\n", rc);
-        return;       
-    }
-    printf("Subscribing to topic %s\nfor client %s using QoS%d\n\n"
-           "Press Q<Enter> to quit\n\n", TOPIC, CLIENTID, QOS);
-    if ((rc = MQTTClient_subscribe(client, TOPIC, QOS)) != MQTTCLIENT_SUCCESS) {
-        printf("Failed to subsribe, return code %d\n", rc);
-        return;       
-    }
+	MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered);
+
+	if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS) {
+		log(TL_ERROR, "MQTT: Failed to connect, return code %d", rc);
+		return;
+	}
 }
 
 void disconnectMqtt() {
 	MQTTClient_disconnect(client, 10000);
-    MQTTClient_destroy(&client);
+	MQTTClient_destroy(&client);
+}
+
+void mqttPublish(char *topic, char *payload) {
+	MQTTClient_message pubmsg = MQTTClient_message_initializer;
+	MQTTClient_deliveryToken token;
+	pubmsg.payload = payload;
+	pubmsg.payloadlen = strlen(payload);
+	pubmsg.qos = QOS;
+	pubmsg.retained = 0;
+	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
+	log(TL_DEBUG, "MQTT: Published message '%s' on topis %s.", payload, topic);
+}
+
+void mqttSubscribe(char *topic) {
+	int rc;
+	if ((rc = MQTTClient_subscribe(client, topic, QOS)) != MQTTCLIENT_SUCCESS) {
+		log(TL_ERROR, "Failed to subsribe to %s, return code %d", topic, rc);
+		return;
+	}
 }
