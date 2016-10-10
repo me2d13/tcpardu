@@ -293,6 +293,33 @@ void sendString(char *value, DeviceInfo *deviceInfo) {
 	free(valueCopy);
 }
 
+void sendMqttMessage(char *topic, char *payload, int payloadLength, DeviceInfo *deviceInfo) {
+	int topicLength = strlen(topic);
+	int totalSize = 2+1+topicLength+1+payloadLength+1+1;
+	// format: MM:topic:payload#0
+	char *outBuffer = (char*)malloc(totalSize);
+	if (outBuffer == NULL) {
+		log(TL_ERROR, "Cannot allocate %d bytes for value copy", totalSize);
+		return;
+	}
+	outBuffer[0] = 'M';
+	outBuffer[1] = 'M';
+	outBuffer[2] = ':';
+	int topicStart = 3;
+	strncpy(outBuffer+topicStart, topic, topicLength);
+	outBuffer[topicStart + topicLength] = ':';
+	int payloadStart = topicStart+1+topicLength;
+	strncpy(outBuffer+payloadStart, payload, payloadLength);
+	outBuffer[payloadStart+payloadLength] = MESSAGE_SEPARATOR;
+	outBuffer[payloadStart+payloadLength+1] = 0;
+	log(TL_DEBUG, "toSERIAL[%d]: sent '%s' to fd %d", deviceInfo->index, outBuffer, deviceInfo->fd);
+	write(deviceInfo->fd, outBuffer, totalSize-1);
+	// -1 means: do not send string terminator \0. Anything after message separator
+	// would be considered as part of next message which would be empty string
+	// but keep it there for debug output purpose, just send shorter string to serial
+	free(outBuffer);
+}
+
 void processCommand(char *command, DeviceInfo *deviceInfo) {
 	Message message;
 	if (parseMessage(command, &message) && message.isCommand) {
@@ -484,5 +511,8 @@ void setDevicePathDefaults() {
 }
 
 void sendMqttMessageToAllSerialDevices(char *topic, void *payload, int payloadLength) {
-
+	int i;
+	for (i = 0; i < gDeviceCount; i++) {
+		sendMqttMessage(topic, payload, payloadLength, gSerialDevices + i);
+	}
 }
