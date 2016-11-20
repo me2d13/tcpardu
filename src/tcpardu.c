@@ -58,6 +58,8 @@ void executionLoop() {
 		} else {
 			serialDetectTrigerCountdown--;
 		}
+		// check & reconnect mqtt
+		mqttConnectionCheckTick();
 		// prepare select
 		int maxfd = 0;
 		int selectResult;
@@ -216,4 +218,3 @@ int validateConfiguration() {
 	}
 	return RETURN_OK;
 }
-a
